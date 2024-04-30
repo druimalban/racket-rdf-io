@@ -1,23 +1,38 @@
 #lang racket/base
 
 (require net/url-string
-         "../core/graph.rkt"
-         "../core/io.rkt"
-         "./lib.rkt")
+         ;; --------------------------------------
+         rdf/core/graph
+         rdf/core/io
+         ;; --------------------------------------
+         "./base.rkt")
 
-(provide *ntriple-serialization*
-         ntriple-writer)
+(provide ntriple-representation)
 
-(define (ntriple-writer graph (out (current-output-port)))
+(define representation-name "N-Triples")
+
+(define (nt-write-dataset dataset (out (current-output-port)))
+  (raise-representation-write-error
+   representation-name
+   'dataset
+   '((unsupported . "cannot write dataset"))))
+
+(define (nt-write-graph graph (out (current-output-port)))
   (write-ntriple-graph graph out))
 
-(define *ntriple-serialization*
-  (make-serialization
-   'ntriples
-   "N-Triples"
-   '("nt")
-   (string->url "https://www.w3.org/TR/n-triples/")
-   ntriple-writer
-   (void)))
+(define (nt-write-statement stmt (out (current-output-port)))
+  (write-ntriple-statement stmt out))
 
-(register-serialization *ntriple-serialization*)
+(define (nt-write-literal lit (out (current-output-port)))
+  (write-ntriple-literal lit out))
+
+(define ntriple-representation
+ (representation
+   'ntriples
+   representation-name
+   '("nt")
+   #f
+   (writer nt-write-dataset
+           nt-write-graph
+           nt-write-statement
+           nt-write-literal)))

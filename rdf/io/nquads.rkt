@@ -1,23 +1,33 @@
 #lang racket/base
 
 (require net/url-string
-         "../core/graph.rkt"
-         "../core/io.rkt"
-         "./lib.rkt")
+         ;; --------------------------------------
+         rdf/core/graph
+         rdf/core/io
+         ;; --------------------------------------
+         "./base.rkt")
 
-(provide *nquad-serialization*
-         nquad-writer)
+(provide nquad-representation)
 
-(define (nquad-writer graph (out (current-output-port)))
+(define (nq-write-dataset dataset (out (current-output-port)))
+  (write-nquad-dataset dataset out))
+
+(define (nq-write-graph graph (out (current-output-port)))
   (write-nquad-graph graph out))
 
-(define *nquad-serialization*
-  (make-serialization
+(define (nq-write-statement stmt (out (current-output-port)))
+  (write-ntriple-statement stmt out))
+
+(define (nq-write-literal lit (out (current-output-port)))
+  (write-ntriple-literal lit out))
+
+(define nquad-representation
+ (representation
    'nquads
    "N-Quads"
-   '("nt")
-   (string->url "https://www.w3.org/TR/n-quads/")
-   nquad-writer
-   (void)))
-
-(register-serialization *nquad-serialization*)
+   '("nq")
+   #f
+   (writer nq-write-dataset
+           nq-write-graph
+           nq-write-statement
+           nq-write-literal)))

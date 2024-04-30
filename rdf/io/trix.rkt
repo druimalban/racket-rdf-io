@@ -1,67 +1,161 @@
 #lang racket/base
 
-(require racket/string
+(require racket/function
+         racket/string
+         ;; --------------------------------------
          net/url-string
-         "../core/graph.rkt"
-         "../core/literal.rkt"
-         "../core/statement.rkt"
-         "./lib.rkt")
+         ;; --------------------------------------
+         rdf/core/dataset
+         rdf/core/name
+         rdf/core/namespace
+         rdf/core/literal
+         rdf/core/statement
+         rdf/core/triple
+         rdf/core/graph
+         rdf/core/io
+         ;; --------------------------------------
+         "./base.rkt"
+         ;; --------------------------------------
+         "./private/writexml.rkt")
 
-(provide *trix-serialization*
-         trix-writer)
+(provide trix-representation
+         trix-representation/w3c)
 
-(define (trix-write-between val indent element out (attributes '()))
-  (let ((attribute-string (string-join
-                           (map (λ (pair) (format " ~a=~s" (car pair) (cadr pair)))
-                                attributes)
-                           "")))
-    (displayln (format "~a<~a~a>~a</~a>" indent element attribute-string val element) out)))
+;; The W3C DTD:
+;; <!-- TriX: RDF Triples in XML -->
+;; <!ELEMENT trix         (graph*)>
+;; <!ATTLIST trix         xmlns CDATA #FIXED "http://www.w3.org/2004/03/trix/trix-1/">
+;; <!ELEMENT graph        (uri, triple*)>
+;; <!ELEMENT triple       ((id|uri|plainLiteral|typedLiteral), uri, (id|uri|plainLiteral|typedLiteral))>
+;; <!ELEMENT id           (#PCDATA)>
+;; <!ELEMENT uri          (#PCDATA)>
+;; <!ELEMENT plainLiteral (#PCDATA)>
+;; <!ATTLIST plainLiteral xml:lang CDATA #IMPLIED>
+;; <!ELEMENT typedLiteral (#PCDATA)>
+;; <!ATTLIST typedLiteral datatype CDATA #REQUIRED>
 
-(define (trix-writer-part val out)
+;; the HPL-2003-268 DTD:
+;; <!-- TriX: RDF Triples in XML -->
+;; <!ELEMENT graphset (graph*)>
+;; <!ATTLIST graphset xmlns CDATA #FIXED "http://example.org/TriX/">
+;; <!ELEMENT graph ((id|uri)?, triple*)>
+;; <!ATTLIST graph asserted (true|false) "true">
+;; <!ELEMENT triple ((id|uri), uri, (id|uri|plainLiteral|typedLiteral))>
+;; <!ELEMENT id (#PCDATA)>
+;; <!ELEMENT uri (#PCDATA)>
+;; <!ELEMENT plainLiteral (#PCDATA)>
+;; <!ATTLIST plainLiteral xml:lang CDATA #IMPLIED>
+;; <!ELEMENT typedLiteral (#PCDATA)>
+;; <!ATTLIST typedLiteral datatype CDATA #REQUIRED>
+
+;; In other examples the namespace is:
+;;   "http://jena.sourceforge.net/TriX/"
+
+(define (trix-write-statement-part val out)
   (let ((indent "      "))
-   (cond
-     ((url? val)
-      (trix-write-between (url->string val) indent "uri" out))
+    (cond
+      ((url? val)
+       (display (element "uri" #:content (url->string val)) out))
 
-     ((blank-node? val)
-      (trix-write-between (blank-node-id val) indent "id" out))
+      ((blank-node? val)
+       (display (element "id" #:content (blank-node->string val)) out))
 
-     ((language-string? val)
-      (trix-write-between (language-string-text val) indent "plainLiteral" out
-                          (list (list "xml:lang" (language-string-language val)))))
+      ((has-language-tag? val)
+       (display (element
+                 "plainLiteral"
+                 #:attrs (list (xml:lang (literal-language-tag val)))
+                 #:content (literal-lexical-form val))
+                out))
 
-     ((typed-string? val)
-      (trix-write-between (typed-string-text val) indent "typedLiteral" out
-                          (list (list "datatype" (url->string (typed-string-datatype val))))))
+      ((has-datatype-iri? val)
+       (display (element
+                 "typedLiteral"
+                 #:attrs (list (cons "datatype" (url->string (literal-datatype-iri val))))
+                 #:content (literal-lexical-form val))
+                out))
 
-     ((literal? val) (trix-write-between val indent "plainLiteral" out))
+      ((literal? val)
+       (display (element "plainLiteral" #:content val) out))
 
      (else (error "Not a subject?")))))
 
-(define (trix-writer graph (out (current-output-port)))
-  (displayln "<?xml version\"1.0\"?" out)
-  (displayln "<TriX xmlns=\"http://www.w3.org/2004/03/trix/trix-1/\">" out)
-  (displayln "  <graph>" out)
-  (when (graph-named? graph)
-    (trix-write-between (url->string (graph-name graph)) "    " "uri" out))
-  (for-each
-   (λ (stmt)
-     (displayln "    <triple>" out)
-     (trix-writer-part (statement-subject stmt) out)
-     (trix-writer-part (statement-predicate stmt) out)
-     (trix-writer-part (statement-object stmt) out)
-     (displayln "    </triple>" out))
-   (graph-statements graph))
-  (displayln "  </graph>" out)
-  (displayln "</TriX>" out))
+(define (trix-write-statement/impl stmt out)
+  (display (element-start "triple") out)
+  (trix-write-statement-part (get-subject stmt) out)
+  (trix-write-statement-part (get-predicate stmt) out)
+  (trix-write-statement-part (get-object stmt) out)
+  (display (element-end "triple") out))
 
-(define *trix-serialization*
-  (make-serialization
+(define (trix-write-graph/impl graph hpl-variant out)
+  (if hpl-variant
+      (display (element-start "graph"
+                                (list (cons 'asserted
+                                            (if (graph-asserted graph)
+                                                "true" "false")))) out)
+      (display (element-start "graph") out))
+  (when (graph-named? graph)
+    (display (element "uri" #:content (url->string (graph-name graph))) out))
+  (for-each
+   (curryr trix-write-statement/impl out)
+   (graph-statements graph))
+  (display (element-end "graph") out))
+
+(define (trix-write-dataset/impl dataset hpl-variant out)
+  (let ((element-name (if hpl-variant "graphset" "trix"))
+        (namespace (if hpl-variant
+                       "http://jena.sourceforge.net/TriX/"
+                       "http://www.w3.org/2004/03/trix/trix-1/")))
+    (display (standard-prolog-entry) out)
+    (display (element-start element-name (list (xml:namespace namespace))) out)
+    (for-each
+     (λ (graph) (trix-write-graph/impl graph hpl-variant out))
+     (dataset-values dataset))
+    (display (element-end element-name) out)))
+
+;; -------------------------------------------------------------------------------------------------
+
+(define (trix-write-dataset dataset (out (current-output-port)))
+  (trix-write-dataset/impl dataset #t out))
+
+(define (trix-write-dataset/w3c dataset (out (current-output-port)))
+  (trix-write-dataset/impl dataset #f out))
+
+(define (trix-write-graph graph (out (current-output-port)))
+  (trix-write-dataset (graph-list->dataset (list graph)) out))
+
+(define (trix-write-graph/w3c graph (out (current-output-port)))
+  (trix-write-dataset/w3c (graph-list->dataset (list graph)) out))
+
+(define (trix-write-statement stmt (out (current-output-port)))
+  (raise-representation-write-error
+   representation-name
+   'dataset
+   '((unsupported . "cannot write individual statements"))))
+
+(define (trix-write-literal lit (out (current-output-port)))
+  (raise-representation-write-error
+   representation-name
+   'dataset
+   '((unsupported . "cannot write individual literals"))))
+
+(define trix-representation
+  (representation
    'trix
    "TriX"
-   '("nt")
-   (string->url "http://www.hpl.hp.com/techreports/2004/HPL-2004-56.html")
-   trix-writer
-   (void)))
+   '("trix" "trxml")
+   #f
+   (writer trix-write-dataset
+           trix-write-graph
+           trix-write-statement
+           trix-write-literal)))
 
-(register-serialization *trix-serialization*)
+(define trix-representation/w3c
+  (representation
+   'trix-w3c
+   "TriX (W3c)"
+   '("trix" "trxml")
+   #f
+   (writer trix-write-dataset/w3c
+           trix-write-graph/w3c
+           trix-write-statement
+           trix-write-literal)))

@@ -6,9 +6,10 @@
          racket/list
          racket/string
          ;; --------------------------------------
-         "../name.rkt"
-         "./strings.rkt")
+         rdf/core/name
+         rdf/core/nsmap)
 
+;; from core: "./strings.rkt"
 
 (define/contract (ncname? val)
   ;; [4]    NCName          ::= Name - (Char* ':' Char*)
@@ -44,7 +45,7 @@
   (cond
     ((symbol? val) (qname? (symbol->string val)))
     ((string? val)
-     (let ((split (string-split val name-separator #:trim? #f #:repeat? #f)))
+     (let ((split (string-split val prefixed-name-separator #:trim? #f #:repeat? #f)))
        (or (and (= (length split) 1)
                 ;; UnprefixedName
                 (ncname? (car split)))
@@ -95,17 +96,3 @@
       (#\U0300 . #\U036F)
       (#\U203F . #\U2040))
     c)))
-
-(struct xml-pname
-  (prefix name)
-  #:constructor-name internal-make-xml-pname
-  #:methods gen:prefixed-name
-  ((define (get-prefix pname) (xml-pname-prefix pname))
-   (define (get-name pname) (xml-pname-name pname))
-   (define (prefix-valid? _ s) (ncname? s))
-   (define (name-valid? _ s) (ncname? s))
-   ))
-
-(define/contract (make-xml-pname prefix name)
-  (-> (or/c ncname? #f) ncname? xml-pname?)
-  (internal-make-xml-pname prefix name))
