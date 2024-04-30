@@ -1,11 +1,7 @@
 #lang racket/base
 
-(require racket/bool
-         racket/contract
-         racket/generic
+(require racket/contract
          racket/string
-         ;; --------------------------------------
-         net/url-structs
          ;; --------------------------------------
          rdf/core/graph
          rdf/core/dataset

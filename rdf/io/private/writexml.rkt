@@ -1,8 +1,7 @@
 #lang racket/base
 
 (require racket/bool
-         racket/list
-         racket/string)
+         racket/list)
 
 (provide (all-defined-out))
 

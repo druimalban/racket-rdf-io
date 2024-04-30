@@ -1,13 +1,6 @@
 #lang racket/base
 
-(require net/url-string
-         ;; --------------------------------------
-         rdf/core/graph
-         rdf/core/literal
-         rdf/core/statement
-         rdf/core/triple
-         ;; --------------------------------------
-         "../base.rkt"
+(require "../base.rkt"
          "../registry.rkt"
          ;; --------------------------------------
          "./data.rkt")

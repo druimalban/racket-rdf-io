@@ -28,10 +28,31 @@ TBD.
 
 @;{============================================================================}
 @;{============================================================================}
+@section[#:style '(toc)]{Module base}
+@defmodule[rdf/io/base]
+
+TBD
+
+;;(provide reader/c
+;;         (struct-out writer)
+;;         (struct-out representation)
+;;         (struct-out exn:fail:representation)
+;;         make-exn:fail:representation
+;;         raise-representation-read-error
+;;         raise-representation-write-error)
+
+
+@;{============================================================================}
+@;{============================================================================}
 @section[#:style '(toc)]{Module registry}
 @defmodule[rdf/io/registry]
 
 TBD
+
+;;(provide register-representation
+;;         get-representation
+;;         get-known-representations)
+
 
 @;{============================================================================}
 @;{============================================================================}
@@ -39,6 +60,10 @@ TBD
 @defmodule[rdf/io/registry]
 
 TBD
+
+@defthing[nquad-representation representation?]{
+TBD
+}
 
 See @cite["RDF11NQ"].
 
@@ -48,6 +73,10 @@ See @cite["RDF11NQ"].
 @defmodule[rdf/io/registry]
 
 TBD
+
+@defthing[ntriple-representation representation?]{
+TBD
+}
 
 See @cite["RDF11NT"].
 
@@ -63,9 +92,13 @@ TBD
 @;{============================================================================}
 @;{============================================================================}
 @section[#:style '(toc)]{Module trix}
-@defmodule[rdf/io/registry]
+@defmodule[rdf/io/trix]
 
 TBD
+
+@defthing[trix-representation representation?]{
+TBD
+}
 
 See @cite["RDF11TTL"].
 

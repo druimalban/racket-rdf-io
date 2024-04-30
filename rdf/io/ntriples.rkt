@@ -1,9 +1,6 @@
 #lang racket/base
 
-(require net/url-string
-         ;; --------------------------------------
-         rdf/core/graph
-         rdf/core/io
+(require rdf/core/io
          ;; --------------------------------------
          "./base.rkt")
 

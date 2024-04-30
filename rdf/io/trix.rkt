@@ -1,18 +1,13 @@
 #lang racket/base
 
 (require racket/function
-         racket/string
          ;; --------------------------------------
          net/url-string
          ;; --------------------------------------
          rdf/core/dataset
-         rdf/core/name
-         rdf/core/namespace
          rdf/core/literal
          rdf/core/statement
-         rdf/core/triple
          rdf/core/graph
-         rdf/core/io
          ;; --------------------------------------
          "./base.rkt"
          ;; --------------------------------------

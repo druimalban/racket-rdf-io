@@ -4,7 +4,6 @@
          ;; --------------------------------------
          rdf/core/graph
          rdf/core/literal
-         rdf/core/statement
          rdf/core/triple)
 
 (provide (all-defined-out))

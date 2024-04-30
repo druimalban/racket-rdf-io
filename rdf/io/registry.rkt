@@ -1,11 +1,6 @@
 #lang racket/base
 
-(require racket/bool
-         racket/contract
-         racket/generic
-         racket/string
-         ;; --------------------------------------
-         net/url-structs
+(require racket/contract
          ;; --------------------------------------
          "./base.rkt"
          "./nquads.rkt"
