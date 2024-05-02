@@ -3,10 +3,11 @@
 (require racket/contract
          racket/string
          ;; --------------------------------------
-         rdf/core/graph
          rdf/core/dataset
-         rdf/core/statement
-         rdf/core/literal)
+         rdf/core/graph
+         rdf/core/literal
+         rdf/core/nsmap
+         rdf/core/statement)
 
 (provide reader/c
          (struct-out writer)
@@ -27,10 +28,10 @@
 
 (struct writer (dataset graph statement literal)
   #:transparent
-  #:guard (struct-guard/c (->* (dataset?) (output-port?) void?)
-                          (->* (graph?) (output-port?) void?)
-                          (->* (statement?) (output-port?) void?)
-                          (->* (literal?) (output-port?) void?)))
+  #:guard (struct-guard/c (->* (dataset?) (output-port? #:map nsmap?) void?)
+                          (->* (graph?) (output-port? #:map nsmap?) void?)
+                          (->* (statement?) (output-port? #:map nsmap?) void?)
+                          (->* (literal?) (output-port? #:map nsmap?) void?)))
 
 ;; -------------------------------------------------------------------------------------------------
 

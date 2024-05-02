@@ -1,98 +1,128 @@
 #lang racket/base
 
 (require racket/bool
-         racket/contract
          racket/function
-         racket/list
-         racket/string
+         racket/set
          ;; --------------------------------------
-         rdf/core/name
-         rdf/core/nsmap)
+         net/url-string
+         ;; --------------------------------------
+         rdf/core/namespace
+         rdf/core/dataset
+         rdf/core/literal
+         rdf/core/nsmap
+         rdf/core/statement
+         rdf/core/graph
+         rdf/core/v/rdf
+         ;; --------------------------------------
+         "./base.rkt"
+         ;; --------------------------------------
+         "./private/formatter.rkt"
+         "./private/writexml.rkt")
 
-;; from core: "./strings.rkt"
+(provide xml-representation)
 
-(define/contract (ncname? val)
-  ;; [4]    NCName          ::= Name - (Char* ':' Char*)
-  ;;                            /* An XML Name, minus the ":" */
-  (-> any/c boolean?)
+(define representation-name "RDF/XML")
+
+(define (type-attributes object)
   (cond
-    ((symbol? val)
-     (ncname? (symbol->string val)))
-    ((non-empty-string? val)
-     (let ((char-list (string->list val)))
-       (and (name-start-char? (car char-list))
-            (andmap name-char? (cdr char-list)))))
-    (else #f)))
+    ((url? object)
+     (list (cons "rdf:resource" (url->string object))))
+    ((blank-node? object)
+     (list (cons "rdf:nodeID" (blank-node->string object))))
+    ((and (literal? object) (has-language-tag? object))
+     (list (xml:lang (literal-language-tag object))))
+    ((and (literal? object) (has-datatype-iri? object))
+     (list (cons "rdf:datatype" (url->string (literal-datatype-iri object)))))
+    (else '())))
 
-(define/contract (string->ncname str)
-  (-> string? (or/c string? #f))
-  (if (ncname?) str #f))
+(define (xml-property predicate object nsmap out)
+  (let* ((ns+name (url->namespace+name predicate))
+         (ns-url (car ns+name))
+         (ns-prefix (nsmap-prefix-ref nsmap (url->namespace ns-url)))
+         (ns-attr (if (false? ns-prefix)
+                      (list (xml:namespace (url->string ns-url)))
+                      (list)))
+         (name (if (false? ns-prefix)
+                   (cdr ns+name)
+                   (format "~a~a" (prefix->string ns-prefix) (cdr ns+name)))))
+    (display (element-start name #:attrs (append ns-attr
+                                                 (type-attributes object)))
+             out)
+    (when (literal? object)
+      (display (element-content (literal-lexical-form object)) out))
+    (display (element-end name) out)))
 
-(define/contract (symbol->ncname sym)
-  (-> symbol? (or/c string? #f))
-  (string->ncname (symbol->string sym)))
+(define (xml-describe graph subject statement-list nsmap out)
+  (let ((subject (if (blank-node? subject)
+                     (cons "rdf:nodeID" (blank-node->string subject))
+                     (cons "rdf:about" (url->string subject)))))
+    (display (element-start "rdf:Description" #:attrs (list subject)) out)
+    (for-each (λ (stmt) (xml-property (get-predicate stmt) (get-object stmt) nsmap out))
+              statement-list)
+    (display (element-end "rdf:Description")) out))
 
-(define/contract (qname? val)
-  ;; [7]    QName           ::= PrefixedName | UnprefixedName
-  ;; [8]    PrefixedName    ::= Prefix ':' LocalPart
-  ;; [9]    UnprefixedName  ::= LocalPart
-  ;; [10]   Prefix          ::= NCName
-  ;; [11]   LocalPart       ::= NCName
-  ;;
-  ;;        QName           ==> (Prefix ':')? LocalPart
-  ;;                        ==> (NCName ':')? NCName
-  (-> any/c boolean?)
-  (cond
-    ((symbol? val) (qname? (symbol->string val)))
-    ((string? val)
-     (let ((split (string-split val prefixed-name-separator #:trim? #f #:repeat? #f)))
-       (or (and (= (length split) 1)
-                ;; UnprefixedName
-                (ncname? (car split)))
-           (and (= (length split) 2)
-                ;; PrefixedName
-                (ncname? (car split))
-                (ncname? (cadr split))))))
-    (else #f)))
+(define (xml-write-graph/impl graph nsmap out)
+  (for-each (λ (subject)
+              (xml-describe graph
+                            subject
+                            (graph-filter-by-subject graph subject)
+                            nsmap
+                            out))
+            (set->list (graph-distinct-subjects graph))))
 
-(define (name-start-char? c)
-  ;; [4]    NameStartChar   ::= ":" | [A-Z] | "_" | [a-z] | [#xC0-#xD6]
-  ;;                          | [#xD8-#xF6]
-  ;;                          | [#xF8-#x2FF] | [#x370-#x37D]
-  ;;                          | [#x37F-#x1FFF]| [#x200C-#x200D]
-  ;;                          | [#x2070-#x218F] | [#x2C00-#x2FEF]
-  ;;                          | [#x3001-#xD7FF] | [#xF900-#xFDCF]
-  ;;                          | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
-  (or
-   ;; remove the ":" as per XML namespaces
-   (char=? c #\_)
-   (char-between-any?
-    `(,range-ascii-upper
-      ,range-ascii-lower
-      (#\u00C0 . #\u00D6)
-      (#\u00D8 . #\u00F6)
-      (#\u00F8 . #\u02FF)
-      (#\u0370 . #\u037D)
-      (#\u037F . #\u1FFF)
-      (#\u200C . #\u200D)
-      (#\u2070 . #\u218F)
-      (#\u2C00 . #\u2FEF)
-      (#\u3001 . #\uD7FF)
-      (#\uF900 . #\uFDCF)
-      (#\uFDF0 . #\uFFFD)
-      (#\U10000 . #\UEFFF9))
-    c)))
+(define (nsmap->xmlns nsmap)
+  (let ((initial-list (map (λ (pair) (xml:namespace (namespace->string (cdr pair))
+                                                    (prefix->name-string (car pair))))
+                           (nsmap->list nsmap)))
+        (rdf-prefix (nsmap-prefix-ref nsmap rdf:)))
+    (if (false? rdf-prefix)
+        (cons (xml:namespace rdf-namespace-string
+                             rdf-prefix-string)
+            initial-list)
+      initial-list)))
 
-(define (name-char? c)
-  ;; [4a]   NameChar        ::= NameStartChar | "-" | "." | [0-9] | #xB7
-  ;;                          | [#x0300-#x036F] | [#x203F-#x2040]
-  (or
-   (name-start-char? c)
-   (char=? c #\-)
-   (char=? c #\.)
-   (char=? c #\u00B7)
-   (char-between-any?
-    `(,range-ascii-digit
-      (#\U0300 . #\U036F)
-      (#\U203F . #\U2040))
-    c)))
+(define (xml-write-dataset/impl dataset nsmap out)
+    (display (standard-prolog-entry) out)
+  (display (element-start "rdf:RDF" #:attrs (nsmap->xmlns (or nsmap (make-common-nsmap)))) out)
+    (for-each
+     (λ (graph) (xml-write-graph/impl graph nsmap out))
+     (dataset-values dataset))
+  (display (element-end "rdf:RDF") out))
+
+;; -------------------------------------------------------------------------------------------------
+
+(define (xml-write-dataset dataset (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (xml-write-dataset/impl dataset nsmap out))
+
+(define (xml-write-graph graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (xml-write-dataset (graph-list->dataset (list graph)) out #:map nsmap))
+
+(define (xml-write-statement stmt (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (raise-representation-write-error
+   representation-name
+   'dataset
+   '((unsupported . "cannot write individual statements"))))
+
+(define (xml-write-literal lit (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (raise-representation-write-error
+   representation-name
+   'dataset
+   '((unsupported . "cannot write individual literals"))))
+
+(define xml-representation
+  (representation
+   'xml
+   representation-name
+   '("xml" "rdf")
+   #f
+   (writer xml-write-dataset
+           xml-write-graph
+           xml-write-statement
+           xml-write-literal)))
+
+(require "./tests/data.rkt")
+
+(let ((nsmap (make-common-nsmap)))
+  (nsmap-set! nsmap (string->prefix "peeps") (string->namespace "http://example.com/v/people#"))
+  (parameterize ((xml-formatter (make-formatter)))
+    (xml-write-graph *test-graph* #:map nsmap)))

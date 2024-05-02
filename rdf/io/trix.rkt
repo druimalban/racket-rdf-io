@@ -147,7 +147,7 @@
 (define trix-representation/w3c
   (representation
    'trix-w3c
-   "TriX (W3c)"
+   "TriX (W3C)"
    '("trix" "trxml")
    #f
    (writer trix-write-dataset/w3c
