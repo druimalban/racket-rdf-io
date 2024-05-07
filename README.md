@@ -12,17 +12,15 @@ A more complete set of RDF I/O procedures than the rdf-core package.
 
 | Pri. | Representation | Writer      | Reader      | Comments                                  |
 |------|----------------|-------------|-------------|-------------------------------------------|
-| 1    | N-Triples      | Complete    | Not Started | Line-Oriented, triples only.              |
+| 1    | N-Triples      | Complete    | Complete    | Line-Oriented, triples only.              |
 | 1    | Turtle         | Started     | Not Started |                                           |
-| 2    | RDF/XML        | Started     | Not Started | Part of the RDF core specifications.      |
-| 2    | N-Quads        | Complete    | Not Started | Effectively N-Triples + Graphs            |
+| 2    | RDF/XML        | Complete     | Not Started | Part of the RDF core specifications.      |
+| 2    | N-Quads        | Complete    | Started     | Effectively N-Triples + Graphs            |
 | 2    | TriG           | Started     | Not Started | Effectively Turtle + Graphs               |
-| 3    | RDF/JSON       | Not Started | Not Started |                                           |
+| 3    | RDF/JSON       | Complete    | Not Started |                                           |
 | 3    | TriX           | Complete    | Not Started |                                           |
 | 4    | JSON-LD        | Not Started | Not Started |                                           |
 | 4    | Notation-3     | Not Started | Not Started | Superset of Turtle with non-RDF features. |
-| 5    | OWL Functional | Not Started | Not Started | Specific for OWL.                         |
-| 5    | OWL Manchester | Not Started | Not Started | Specific for OWL.                         |
 
 ## Example
 
