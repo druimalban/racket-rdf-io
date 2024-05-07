@@ -1,7 +1,5 @@
 #lang info
 (define name "rdf-io")
-(define deps '("base" "rdf-core"))
-(define build-deps '("scribble-lib" "racket-doc"))
 (define scribblings '(("scribblings/rdf-io.scrbl" (multi-page) (library))))
 (define test-omit-paths '("scribblings"))
 (define pkg-desc "A more complete set of RDF I/O procedures than the rdf-core package..")
