@@ -10,11 +10,14 @@
          rdf/core/statement)
 
 (provide reader/c
-         (struct-out writer)
+         dataset-writer/c
+         graph-writer/c
          (struct-out representation)
          ;; --------------------------------------
          (struct-out exn:fail:representation)
          make-exn:fail:representation
+         representation-operation/c
+         raise-representation-error
          raise-representation-read-error
          raise-representation-write-error)
 
@@ -22,26 +25,22 @@
 ;; Structures
 ;; -------------------------------------------------------------------------------------------------
 
-(define reader/c (-> input-port? (or/c statement-list? graph? dataset?)))
+(define reader/c (->* () (input-port? #:map nsmap?) (or/c statement-list? graph? dataset?)))
+
+(define dataset-writer/c (->* (dataset?) (output-port? #:map nsmap?) void?))
+
+(define graph-writer/c (->* (graph?) (output-port? #:map nsmap?) void?))
 
 ;; -------------------------------------------------------------------------------------------------
 
-(struct writer (dataset graph statement literal)
-  #:transparent
-  #:guard (struct-guard/c (->* (dataset?) (output-port? #:map nsmap?) void?)
-                          (->* (graph?) (output-port? #:map nsmap?) void?)
-                          (->* (statement?) (output-port? #:map nsmap?) void?)
-                          (->* (literal?) (output-port? #:map nsmap?) void?)))
-
-;; -------------------------------------------------------------------------------------------------
-
-(struct representation (id name file-extensions reader writer)
+(struct representation (id name file-extensions reader dataset-writer graph-writer)
   #:transparent
   #:guard (struct-guard/c symbol?
                           string?
                           (listof string?)
                           (or/c reader/c #f)
-                          writer?))
+                          (or/c dataset-writer/c #f)
+                          (or/c graph-writer/c #f)))
 
 ;; -------------------------------------------------------------------------------------------------
 ;; Exceptions
@@ -50,6 +49,8 @@
 (struct exn:fail:representation exn:fail ()
   #:extra-constructor-name make-exn:fail:representation
   #:transparent)
+
+(define representation-operation/c (or/c 'read 'write))
 
 (define (raise-representation-error repr op message)
   (raise (make-exn:fail:representation
@@ -87,5 +88,3 @@
    (format "  writing: ~a\n~a"
            component
            (format-context-string context))))
-
-

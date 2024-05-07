@@ -4,14 +4,17 @@
          ;; --------------------------------------
          net/url-string
          ;; --------------------------------------
+         xml
+         ;; --------------------------------------
          rdf/core/dataset
          rdf/core/literal
+         rdf/core/nsmap
          rdf/core/statement
          rdf/core/graph
          ;; --------------------------------------
          "./base.rkt"
          ;; --------------------------------------
-         "./private/writexml.rkt")
+         "./private/xmlu.rkt")
 
 (provide trix-representation
          trix-representation/w3c)
@@ -46,92 +49,112 @@
 ;; In other examples the namespace is:
 ;;   "http://jena.sourceforge.net/TriX/"
 
-(define (trix-write-statement-part val out)
+(define (statement-part->element val nsmap)
   (let ((indent "      "))
     (cond
       ((url? val)
-       (display (element "uri" #:content (url->string val)) out))
-
+       (make-element #f #f
+                     'uri
+                     '()
+                     (list (make-pcdata
+                            #f #f
+                            (url->string val)))))
       ((blank-node? val)
-       (display (element "id" #:content (blank-node->string val)) out))
-
+       (make-element #f #f
+                     'id
+                     '()
+                     (list (make-pcdata
+                            #f #f
+                            (blank-node->string val)))))
       ((has-language-tag? val)
-       (display (element
-                 "plainLiteral"
-                 #:attrs (list (xml:lang (literal-language-tag val)))
-                 #:content (literal-lexical-form val))
-                out))
-
+        (make-element #f #f
+                     'plainLiteral
+                     (list (make-attribute
+                            #f #f
+                            'xml:lang
+                            (literal-language-tag val)))
+                     (list (make-pcdata
+                            #f #f
+                            (literal-lexical-form val)))))
       ((has-datatype-iri? val)
-       (display (element
-                 "typedLiteral"
-                 #:attrs (list (cons "datatype" (url->string (literal-datatype-iri val))))
-                 #:content (literal-lexical-form val))
-                out))
-
+        (make-element #f #f
+                     'typedLiteral
+                     (list (make-attribute
+                            #f #f
+                            'datatype
+                            (url->string (literal-datatype-iri val))))
+                     (list (make-pcdata
+                            #f #f
+                            (literal-lexical-form val)))))
       ((literal? val)
-       (display (element "plainLiteral" #:content val) out))
-
+        (make-element #f #f
+                     'plainLiteral
+                     (list)
+                     (list (make-pcdata
+                            #f #f
+                            (literal-lexical-form val)))))
      (else (error "Not a subject?")))))
 
-(define (trix-write-statement/impl stmt out)
-  (display (element-start "triple") out)
-  (trix-write-statement-part (get-subject stmt) out)
-  (trix-write-statement-part (get-predicate stmt) out)
-  (trix-write-statement-part (get-object stmt) out)
-  (display (element-end "triple") out))
+(define (statement->element stmt nsmap)
+  (make-element
+   #f #f
+   'triple
+   '()
+   (list (statement-part->element (get-subject stmt) nsmap)
+         (statement-part->element (get-predicate stmt) nsmap)
+         (statement-part->element (get-object stmt) nsmap))))
 
-(define (trix-write-graph/impl graph hpl-variant out)
-  (if hpl-variant
-      (display (element-start "graph"
-                                (list (cons 'asserted
-                                            (if (graph-asserted graph)
-                                                "true" "false")))) out)
-      (display (element-start "graph") out))
-  (when (graph-named? graph)
-    (display (element "uri" #:content (url->string (graph-name graph))) out))
-  (for-each
-   (curryr trix-write-statement/impl out)
-   (graph-statements graph))
-  (display (element-end "graph") out))
+(define (graph->element graph hpl-variant nsmap)
+  (let ((attributes (if hpl-variant
+                        (list (make-attribute
+                               #f #f
+                               'asserted
+                               (boolean->xml (graph-asserted graph))))
+                        (list)))
+        (elements (if (graph-named? graph)
+                      (list (make-element
+                             #f #f
+                             'uri
+                             (list)
+                             (list (make-pcdata
+                                    #f #f
+                                    (url->string (graph-name graph))))))
+                      (list))))
+    (make-element
+     #f #f
+     'graph
+     attributes
+     (append elements
+           (map
+            (λ (stmt) (statement->element stmt nsmap))
+            (graph-statements graph))))))
 
-(define (trix-write-dataset/impl dataset hpl-variant out)
-  (let ((element-name (if hpl-variant "graphset" "trix"))
+(define (dataset->document dataset hpl-variant nsmap)
+  (let ((element-name (if hpl-variant 'graphset 'trix))
         (namespace (if hpl-variant
                        "http://jena.sourceforge.net/TriX/"
                        "http://www.w3.org/2004/03/trix/trix-1/")))
-    (display (standard-prolog-entry) out)
-    (display (element-start element-name (list (xml:namespace namespace))) out)
-    (for-each
-     (λ (graph) (trix-write-graph/impl graph hpl-variant out))
-     (dataset-values dataset))
-    (display (element-end element-name) out)))
+    (make-document
+     (make-prolog (list (make-xml-declaration "1.1" #:encoding 'UTF-8))
+                  #f
+                  '())
+     (make-element
+      #f #f
+      element-name
+      (list (make-xmlns-attribute namespace))
+      (map
+       (λ (graph) (graph->element graph hpl-variant nsmap))
+       (dataset-values dataset)))
+     (list))))
 
 ;; -------------------------------------------------------------------------------------------------
 
-(define (trix-write-dataset dataset (out (current-output-port)))
-  (trix-write-dataset/impl dataset #t out))
+(define (trix-write-dataset dataset (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (display-xml (dataset->document dataset #t nsmap) out)
+  (newline out))
 
-(define (trix-write-dataset/w3c dataset (out (current-output-port)))
-  (trix-write-dataset/impl dataset #f out))
-
-(define (trix-write-graph graph (out (current-output-port)))
-  (trix-write-dataset (graph-list->dataset (list graph)) out))
-
-(define (trix-write-graph/w3c graph (out (current-output-port)))
-  (trix-write-dataset/w3c (graph-list->dataset (list graph)) out))
-
-(define (trix-write-statement stmt (out (current-output-port)))
-  (raise-representation-write-error
-   representation-name
-   'dataset
-   '((unsupported . "cannot write individual statements"))))
-
-(define (trix-write-literal lit (out (current-output-port)))
-  (raise-representation-write-error
-   representation-name
-   'dataset
-   '((unsupported . "cannot write individual literals"))))
+(define (trix-write-graph graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (trix-write-dataset (graph-list->dataset (list graph)) out #:map nsmap))
 
 (define trix-representation
   (representation
@@ -139,10 +162,17 @@
    "TriX"
    '("trix" "trxml")
    #f
-   (writer trix-write-dataset
-           trix-write-graph
-           trix-write-statement
-           trix-write-literal)))
+   trix-write-dataset
+   trix-write-graph))
+
+;; -------------------------------------------------------------------------------------------------
+
+(define (trix-write-dataset/w3c dataset (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (display-xml (dataset->document dataset #f nsmap) out)
+  (newline out))
+
+(define (trix-write-graph/w3c graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (trix-write-dataset/w3c (graph-list->dataset (list graph)) out #:map nsmap))
 
 (define trix-representation/w3c
   (representation
@@ -150,7 +180,5 @@
    "TriX (W3C)"
    '("trix" "trxml")
    #f
-   (writer trix-write-dataset/w3c
-           trix-write-graph/w3c
-           trix-write-statement
-           trix-write-literal)))
+   trix-write-dataset/w3c
+   trix-write-graph/w3c))

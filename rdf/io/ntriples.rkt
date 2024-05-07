@@ -1,35 +1,28 @@
 #lang racket/base
 
-(require rdf/core/io
+(require racket/port
          ;; --------------------------------------
-         "./base.rkt")
+         rdf/core/io
+         rdf/core/nsmap
+         ;; --------------------------------------
+         "./base.rkt"
+         ;; --------------------------------------
+         "./private/line-oriented.rkt")
 
 (provide ntriple-representation)
 
-(define representation-name "N-Triples")
+(define (nt-read (inp (current-input-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (let ((lines (port->lines inp #:close? #t)))
+    (map line->triple lines)))
 
-(define (nt-write-dataset dataset (out (current-output-port)))
-  (raise-representation-write-error
-   representation-name
-   'dataset
-   '((unsupported . "cannot write dataset"))))
-
-(define (nt-write-graph graph (out (current-output-port)))
+(define (nt-write-graph graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
   (write-ntriple-graph graph out))
-
-(define (nt-write-statement stmt (out (current-output-port)))
-  (write-ntriple-statement stmt out))
-
-(define (nt-write-literal lit (out (current-output-port)))
-  (write-ntriple-literal lit out))
 
 (define ntriple-representation
  (representation
    'ntriples
-   representation-name
+   "N-Triples"
    '("nt")
+   nt-read
    #f
-   (writer nt-write-dataset
-           nt-write-graph
-           nt-write-statement
-           nt-write-literal)))
+   nt-write-graph))

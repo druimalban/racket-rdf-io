@@ -1,30 +1,31 @@
 #lang racket/base
 
-(require rdf/core/io
+(require racket/port
          ;; --------------------------------------
-         "./base.rkt")
+         rdf/core/io
+         rdf/core/nsmap
+         ;; --------------------------------------
+         "./base.rkt"
+         ;; --------------------------------------
+         "./private/line-oriented.rkt")
 
 (provide nquad-representation)
 
-(define (nq-write-dataset dataset (out (current-output-port)))
+(define (nq-read (inp (current-input-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (let ((lines (port->lines inp #:close? #t)))
+    (map line->quad lines)))
+
+(define (nq-write-dataset dataset (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
   (write-nquad-dataset dataset out))
 
-(define (nq-write-graph graph (out (current-output-port)))
+(define (nq-write-graph graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
   (write-nquad-graph graph out))
-
-(define (nq-write-statement stmt (out (current-output-port)))
-  (write-ntriple-statement stmt out))
-
-(define (nq-write-literal lit (out (current-output-port)))
-  (write-ntriple-literal lit out))
 
 (define nquad-representation
  (representation
    'nquads
    "N-Quads"
    '("nq")
-   #f
-   (writer nq-write-dataset
-           nq-write-graph
-           nq-write-statement
-           nq-write-literal)))
+   nq-read
+   nq-write-dataset
+   nq-write-graph))
