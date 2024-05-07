@@ -1,0 +1,5 @@
+<http://example.com/p/me> <http://example.com/v/people#hasFirstName> "Me"@en <http://example.com/peeps> .
+<http://example.com/p/me> <http://example.com/v/people#hasLastName> "!"^^<http://www.w3.org/2001/XMLSchema#string> <http://example.com/peeps> .
+<http://example.com/p/me> <http://example.com/v/people#hasScores> "2"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/peeps> .
+<http://example.com/p/me> <http://example.com/v/people#hasScores> "4"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/peeps> .
+<http://example.com/p/me> <http://example.com/v/people#hasScores> "42"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.com/peeps> .

@@ -1,0 +1,64 @@
+<?xml version="1.1" encoding="UTF-8"?>
+
+<graphset xmlns="http://jena.sourceforge.net/TriX/">
+  <graph asserted="true">
+    <uri>
+      http://example.com/peeps
+    </uri>
+    <triple>
+      <uri>
+        http://example.com/p/me
+      </uri>
+      <uri>
+        http://example.com/v/people#hasFirstName
+      </uri>
+      <plainLiteral xml:lang="en">
+        Me
+      </plainLiteral>
+    </triple>
+    <triple>
+      <uri>
+        http://example.com/p/me
+      </uri>
+      <uri>
+        http://example.com/v/people#hasLastName
+      </uri>
+      <typedLiteral datatype="http://www.w3.org/2001/XMLSchema#string">
+        !
+      </typedLiteral>
+    </triple>
+    <triple>
+      <uri>
+        http://example.com/p/me
+      </uri>
+      <uri>
+        http://example.com/v/people#hasScores
+      </uri>
+      <typedLiteral datatype="http://www.w3.org/2001/XMLSchema#integer">
+        2
+      </typedLiteral>
+    </triple>
+    <triple>
+      <uri>
+        http://example.com/p/me
+      </uri>
+      <uri>
+        http://example.com/v/people#hasScores
+      </uri>
+      <typedLiteral datatype="http://www.w3.org/2001/XMLSchema#integer">
+        4
+      </typedLiteral>
+    </triple>
+    <triple>
+      <uri>
+        http://example.com/p/me
+      </uri>
+      <uri>
+        http://example.com/v/people#hasScores
+      </uri>
+      <typedLiteral datatype="http://www.w3.org/2001/XMLSchema#integer">
+        42
+      </typedLiteral>
+    </triple>
+  </graph>
+</graphset>
