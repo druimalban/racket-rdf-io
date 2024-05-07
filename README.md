@@ -1,6 +1,6 @@
-Racket Package rdf-io
-=======
-A more complete set of RDF I/O procedures than the rdf-core package.
+# Racket Package rdf-io
+
+A *more* complete set of RDF I/O procedures than the [rdf-core](http://docs.racket-lang.org/rdf-core/index.html) package.
 
 [![raco pkg install rdf-io](https://img.shields.io/badge/raco%20pkg%20install-rdf--io-blue.svg)](http://pkgs.racket-lang.org/package/rdf-io)
 [![Documentation](https://img.shields.io/badge/raco%20docs-rdf--io-blue.svg)](http://docs.racket-lang.org/rdf-io/index.html)
@@ -51,3 +51,13 @@ TBD
 **Version 0.1.0**
 
 Initial release.
+
+> | Representation | Writer      | Reader      |
+> |----------------|-------------|-------------|
+> | N-Triples      | **Complete**    | **Complete**    |
+> | N-Quads        | **Complete**    | *Started*     |
+> | RDF/XML        | **Complete**    | Not Started |
+> | RDF/JSON       | **Complete**    | Not Started |
+> | TriX           | **Complete**    | Not Started |
+> | Turtle         | *Started*     | Not Started |
+> | TriG           | *Started*     | Not Started |
