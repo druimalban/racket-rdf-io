@@ -3,6 +3,8 @@
 (require rdf/core/io
          rdf/core/nsmap
          ;; --------------------------------------
+         media-type
+         ;; --------------------------------------
          "./base.rkt")
 
 (provide trig-representation)
@@ -19,6 +21,7 @@
  (representation
    'trig
    representation-name
+   (string->media-type "application/trig")
    '("trig")
    #f
    trig-write-dataset

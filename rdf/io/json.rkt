@@ -13,6 +13,8 @@
          rdf/core/nsmap
          rdf/core/statement
          ;; --------------------------------------
+         media-type
+         ;; --------------------------------------
          "./base.rkt")
 
 ;; In general, a triple (subject S, predicate P, object O) is serialized in the following structure:
@@ -71,12 +73,9 @@
 (define json-representation
   (representation
    'json
-   "JSON"
-   '("json")
+   "RDF/JSON"
+   (string->media-type "application/rdf+json")
+   '("rj")
    #f
    #f
    json-write-graph))
-
-
-(require "./tests/data.rkt")
-(json-write-graph *example-graph-1*)

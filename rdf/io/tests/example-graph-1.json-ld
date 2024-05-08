@@ -1,0 +1,22 @@
+{
+  "@id": "http://example.com/p/me",
+  "http://example.com/v/people#hasFirstName": {
+    "@language": "en",
+    "@value": "Me"
+  },
+  "http://example.com/v/people#hasLastName": "!",
+  "http://example.com/v/people#hasScores": [
+    {
+      "@type": "http://www.w3.org/2001/XMLSchema#integer",
+      "@value": "2"
+    },
+    {
+      "@type": "http://www.w3.org/2001/XMLSchema#integer",
+      "@value": "4"
+    },
+    {
+      "@type": "http://www.w3.org/2001/XMLSchema#integer",
+      "@value": 42"
+    }
+  ]
+}

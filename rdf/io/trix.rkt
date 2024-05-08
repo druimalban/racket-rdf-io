@@ -12,6 +12,8 @@
          rdf/core/statement
          rdf/core/graph
          ;; --------------------------------------
+         media-type
+         ;; --------------------------------------
          "./base.rkt"
          ;; --------------------------------------
          "./private/xmlu.rkt")
@@ -160,6 +162,7 @@
   (representation
    'trix
    "TriX"
+   (string->media-type "application/trix+xml")
    '("trix" "trxml")
    #f
    trix-write-dataset
@@ -178,6 +181,7 @@
   (representation
    'trix-w3c
    "TriX (W3C)"
+   (string->media-type "application/trix+xml")
    '("trix" "trxml")
    #f
    trix-write-dataset/w3c

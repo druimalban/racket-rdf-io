@@ -5,6 +5,8 @@
          rdf/core/io
          rdf/core/nsmap
          ;; --------------------------------------
+         media-type
+         ;; --------------------------------------
          "./base.rkt"
          ;; --------------------------------------
          "./private/line-oriented.rkt")
@@ -22,6 +24,7 @@
  (representation
    'ntriples
    "N-Triples"
+   (string->media-type "application/n-triples")
    '("nt")
    nt-read
    #f

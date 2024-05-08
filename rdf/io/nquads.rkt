@@ -5,6 +5,8 @@
          rdf/core/io
          rdf/core/nsmap
          ;; --------------------------------------
+         media-type
+         ;; --------------------------------------
          "./base.rkt"
          ;; --------------------------------------
          "./private/line-oriented.rkt")
@@ -25,6 +27,7 @@
  (representation
    'nquads
    "N-Quads"
+   (string->media-type "application/n-quads")
    '("nq")
    nq-read
    nq-write-dataset

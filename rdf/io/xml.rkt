@@ -16,6 +16,8 @@
          rdf/core/graph
          rdf/core/v/rdf
          ;; --------------------------------------
+         media-type
+         ;; --------------------------------------
          "./base.rkt"
          ;; --------------------------------------
          "./private/xmlu.rkt")
@@ -120,6 +122,7 @@
   (representation
    'xml
    representation-name
+   (string->media-type "application/rdf+xml")
    '("xml" "rdf")
    #f
    #f

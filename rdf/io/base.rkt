@@ -7,7 +7,9 @@
          rdf/core/graph
          rdf/core/literal
          rdf/core/nsmap
-         rdf/core/statement)
+         rdf/core/statement
+         ;; --------------------------------------
+         media-type)
 
 (provide reader/c
          dataset-writer/c
@@ -33,10 +35,11 @@
 
 ;; -------------------------------------------------------------------------------------------------
 
-(struct representation (id name file-extensions reader dataset-writer graph-writer)
+(struct representation (id name mime-type file-extensions reader dataset-writer graph-writer)
   #:transparent
   #:guard (struct-guard/c symbol?
                           string?
+                          (or/c media-type? #f)
                           (listof string?)
                           (or/c reader/c #f)
                           (or/c dataset-writer/c #f)

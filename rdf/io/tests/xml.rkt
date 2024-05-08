@@ -25,8 +25,7 @@
 
    (test-case
        "example-graph-1"
-     (check-write-graph *example-graph-1* 'xml "example-graph-1"))
-   ))
+     (check-write-graph *example-graph-1* 'xml "example-graph-1"))))
 
 ;; -----------------------------------------------------------------------------------------------
 ;; Test Runner
