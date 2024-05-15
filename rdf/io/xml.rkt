@@ -2,18 +2,21 @@
 
 (require racket/bool
          racket/function
+         racket/list
          racket/set
          ;; --------------------------------------
          net/url-string
          ;; --------------------------------------
          xml
+         xml/ns
          ;; --------------------------------------
-         rdf/core/namespace
          rdf/core/dataset
+         rdf/core/graph
          rdf/core/literal
+         rdf/core/namespace
          rdf/core/nsmap
          rdf/core/statement
-         rdf/core/graph
+         rdf/core/triple
          rdf/core/v/rdf
          ;; --------------------------------------
          media-type
@@ -25,6 +28,177 @@
 (provide xml-representation)
 
 (define representation-name "RDF/XML")
+
+;; -------------------------------------------------------------------------------------------------
+;; Internal Reader
+;; -------------------------------------------------------------------------------------------------
+
+(define rdf-special-attributes '(about datatype ID nodeID parseType resource))
+
+(define xml-namespace-string "http://www.w3.org/XML/1998/namespace")
+(define xml-special-attributes '(base lang space))
+
+(define (special-attribute? att)
+  (or (and (string=? (attribute-namespace att) rdf-namespace-string)
+           (member (attribute-name att) rdf-special-attributes))
+      (and (string=? (attribute-namespace att) xml-namespace-string)
+           (member (attribute-name att) xml-special-attributes))))
+
+(define (rdf-attribute? att (name #f))
+  (and (string=? (attribute-namespace att) rdf-namespace-string)
+       (if name
+           (eq? (attribute-name att) name)
+           #t)))
+
+(define (rdf-element? elt (name #f))
+  (and (string=? (element-namespace elt) rdf-namespace-string)
+       (if name
+           (eq? (element-name elt) name)
+           #t)))
+
+(define (parse-type? att)
+  (if (rdf-attribute? att 'parseType)
+      (let ((value (attribute-value att)))
+        (cond
+          ((string=? value "Literal") 'literal)
+          ((string=? value "Resource") 'resource)
+          ((string=? value "Collection") 'collection)
+          (else
+           (raise-representation-read-error 'xml "Collection|Literal|Resource" value))))
+      #f))
+
+(define (context-from elt (defaults (make-hash '())))
+  (let ((context (hash-copy defaults)))
+    (for-each
+     (λ (att)
+       (cond
+         ;; TODO: check namespaces
+         ((eq? (attribute-name att) 'lang)
+          (hash-set! context 'lang (attribute-value att)))
+         ((eq? (attribute-name att) 'base)
+          (let* ((base-url-str (attribute-value att))
+                 (base-url (string->url base-url-str)))
+            (if (url-absolute? base-url)
+                (hash-set! context 'base base-url)
+                (raise-representation-read-error 'xml "url-absolute?" base-url-str))))))
+     (element-attributes elt))
+    context))
+
+(define (string->absolute-url s ctx)
+  (let ((url (string->url s))
+        (base (hash-ref ctx 'base #f)))
+    (if (url-absolute? url)
+        url
+        (if base
+            (combine-url/relative base s)
+            (raise-representation-read-error 'xml "url-absolute?" s)))))
+
+(define (xmlns-name->url attr-or-elt)
+  (let ((ns+name (cond
+    ((attribute? attr-or-elt)
+     (list (attribute-namespace attr-or-elt) (attribute-name attr-or-elt)))
+    ((element? attr-or-elt)
+     (list (element-namespace attr-or-elt) (element-name attr-or-elt)))
+    (else #f))))
+    (string->url
+     (string-append (car ns+name)
+                    (symbol->string (cadr ns+name))))))
+
+(define (attribute->object att ctx)
+  (let ((value (attribute-value att))
+        (lang (hash-ref ctx 'lang #f)))
+    (if lang
+        (make-lang-string-literal value lang)
+        (make-untyped-literal value))))
+
+(define (property-element->object elt ctx)
+  (let ((objects
+         (make-hash
+          (filter-map
+           (λ (att)
+             (cond
+               ((rdf-attribute? att 'resource)
+                (cons 'resource (string->absolute-url (attribute-value att) ctx)))
+               ((rdf-attribute? att 'about)
+                (cons 'ID (string->absolute-url (string-append "#" (attribute-value att)) ctx)))
+               ((rdf-attribute? att 'nodeID)
+                (cons 'nodeID (make-blank-node (attribute-value att))))
+               (else #false)))
+           (element-attributes elt))))
+        (parse-type (filter-map parse-type? (element-attributes elt))))
+    (cond
+      ((hash-empty? objects)
+       (let ((datatype (filter (λ (att) (rdf-attribute? att 'datatype)) (element-attributes elt)))
+             (lang (hash-ref ctx 'lang #f))
+             (pcd-string (apply string-append
+                                (map
+                                 (λ (pcd) (pcdata-string pcd))
+                                 (filter pcdata? (element-content elt))))))
+         (cond
+           ((not (empty? datatype))
+            (make-typed-literal pcd-string (string->url (attribute-value (car datatype)))))
+           (lang
+            (make-lang-string-literal pcd-string lang))
+           (else (make-untyped-literal pcd-string)))))
+      ((= (hash-count objects) 1)
+       (first (hash-values objects)))
+      (else
+       (raise-representation-read-error 'xml "resource|ID|nodeID" (format "~s" hash-keys objects))))))
+
+(define (node-element-subject elt ctx)
+  (let ((subjects
+         (make-hash
+          (filter-map
+           (λ (att)
+             (cond
+               ((rdf-attribute? att 'about)
+                (cons 'about (string->absolute-url (attribute-value att) ctx)))
+               ((rdf-attribute? att 'ID)
+                (cons 'ID (string->absolute-url (string-append "#" (attribute-value att)) ctx)))
+               ((rdf-attribute? att 'nodeID)
+                (cons 'nodeID (make-blank-node (attribute-value att))))
+               (else #false)))
+           (element-attributes elt)))))
+    (cond
+      ((hash-empty? subjects)
+       (make-blank-node))
+      ((= (hash-count subjects) 1)
+       (first (hash-values subjects)))
+      (else
+       (raise-representation-read-error 'xml "about|ID|nodeID" (format "~s" hash-keys subjects))))))
+
+(define (node-element->statements elt ctx)
+  (let ((description? (rdf-element? elt 'Description))
+        (subject (node-element-subject elt ctx)))
+    (append
+     (if (not description?)
+         (list (triple subject
+                       (nsname->url rdf:type)
+                       (xmlns-name->url elt)))
+         '())
+     (map
+      (λ (att) (triple subject (xmlns-name->url att) (attribute->object att ctx)))
+      (filter
+       (λ (att) (not (special-attribute? att)))
+       (element-attributes elt)))
+     (map
+      (λ (elt) (triple subject (xmlns-name->url elt) (property-element->object elt (context-from elt ctx))))
+      (filter element? (element-content elt))))))
+
+(define (document->statements doc)
+  (let* ((root (document-element doc))
+         (root-context (context-from root)))
+    (cond
+      ((rdf-element? root 'RDF)
+       (append* '()
+        (map (λ (elt) (node-element->statements elt (context-from elt root-context)))
+            (filter element? (element-content root)))))
+      (else
+       (node-element->statements root root-context)))))
+
+;; -------------------------------------------------------------------------------------------------
+;; Internal Writer
+;; -------------------------------------------------------------------------------------------------
 
 (define (prefix+namespace->attribute prefix+ns)
   (let ((prefix (car prefix+ns))
@@ -112,6 +286,13 @@
    '()))
 
 ;; -------------------------------------------------------------------------------------------------
+;; Provided Reader, Writer, and Representation
+;; -------------------------------------------------------------------------------------------------
+
+(define (xml-read (inp (current-input-port)))
+  (let* ((initial (read-xml inp))
+         (document (xml-expand-names initial)))
+    (document->statements document)))
 
 (define (xml-write-graph graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
   (display-xml (graph->document graph nsmap) out
@@ -124,6 +305,6 @@
    representation-name
    (string->media-type "application/rdf+xml")
    '("xml" "rdf")
-   #f
+   xml-read
    #f
    xml-write-graph))

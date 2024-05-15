@@ -3,25 +3,70 @@
 @(require racket/sandbox
           scribble/core
           scribble/eval
-          (for-label rdf/core/name
-                     rdf/core/namespace
-                     rdf/core/nsmap
-                     rdf/io/nquads
+          rdf/core/graph
+          media-type
+          (for-label racket/base
+                     racket/contract
+                     racket/port
+                     rdf/core/dataset
+                     rdf/core/graph
+                     rdf/core/statement
+                     media-type
+                     rdf/io/base
+                     rdf/io/registry
+                     rdf/io/json
+                     rdf/io/json-ld
                      rdf/io/ntriples
+                     rdf/io/turtle
+                     rdf/io/trig
+                     rdf/io/n3
+                     rdf/io/nquads
                      rdf/io/trix
                      rdf/io/xml))
 
 @;{============================================================================}
 
 @(define example-eval
-   (make-base-eval '(require rdf/io/base
-                             rdf/io/registry)))
+   (make-base-eval '(require net/url-string
+                             rdf/core/graph
+                             rdf/core/literal
+                             rdf/core/triple
+                             rdf/io/base
+                             rdf/io/registry)
+                   '(define
+                     graph-about-me
+                     (named-graph
+                      (string->url "http://example.com/my-graph")
+                      (statement-list
+                        "http://example.com/p/me"
+                        (list (list "http://example.com/v/people#hasFirstName"
+                               (list (make-lang-string-literal "Me" "en")))
+                               (list "http://example.com/v/people#hasLastName" (list "Myself"))
+                               (list "http://example.com/v/people#hasScores" (list 2 4))))))))
 
 @;{============================================================================}
-@title[#:version  "0.1.0"]{RDF I/O Representations}
+@title[#:version  "0.1.1"]{RDF I/O Representations}
 @author[(author+email "Simon Johnston" "johnstonskj@gmail.com")]
 
-TBD.
+This package provides a framework for reading and writing representations of RDF structures, specifically graphs and
+datasets. This framework centers on a structure, @racket[representation], that not only has the reader and writer
+capabilities but also metadata concerning the representation. A registry module allows for the lookup of representations
+and the addition of new representations external to this package.
+
+Representations may be categorized as @italic{dataset-oriented}, @italic{graph-oriented}, or @italic{statement-oriented}
+depending on whether they understand semantics at each of these levels.
+
+@tabular[
+#:style 'boxed
+#:sep @hspace[2]
+#:row-properties '(bottom-border ())
+#:column-properties '(top top)
+(list
+ (list @bold{Orientation} @bold{json}  @bold{json-ld} @bold{nquads} @bold{ntriples} @bold{trig} @bold{trix} @bold{turtle}  @bold{n3} @bold{xml})
+ (list @bold{Dataset}     @para{No}    @para{}        @para{No}     @para{No}       @para{Yes}  @para{}     @para{}        @para{}   @para{No})
+ (list @bold{Graph}       @para{No}    @para{}        @para{Yes*}   @para{No}       @para{Yes}  @para{Yes}  @para{}        @para{}   @para{No})
+ (list @bold{Statement}   @para{Yes}   @para{}        @para{Yes}    @para{Yes}      @para{-}    @para{-}    @para{Yes}     @para{}   @para{Yes})
+)]
 
 @table-of-contents[]
 
@@ -30,21 +75,36 @@ TBD.
 @section[#:style '(toc)]{Module base}
 @defmodule[rdf/io/base]
 
-TBD
+The following struct is used by the @racket[registry] module to hold details about a representation implementation. Each
+representation creates an instance of the struct and can provide it to the registry module for lookup.
 
 @defstruct*[representation (
             (id symbol?)
             (name string?)
+            (mime-type (or/c media-type? #f))
             (file-extensions (listof string?))
             (reader (or/c reader/c #f))
-            (writer writer?))]{
+            (dataset-writer (or/c dataset-writer/c #f))
+            (graph-writer (or/c graph-writer/c #f)))]{
 TBD
+
+@itemlist[
+  @item{@racket[id] -- the symbol used to look up a representation in the registry.}
+  @item{@racket[name] -- a display name commonly used for this representation.}
+  @item{@racket[mime-type] -- an IANA registered media-type, if one exists, for this representation.}
+  @item{@racket[file-extensions] -- any registered, or well-known, file extensions used for this representation.}
+  @item{@racket[reader] -- a function to read an RDF representation from an input port.}
+  @item{@racket[dataset-writer] -- a function to write an RDF dataset in this representation.}
+  @item{@racket[graph-writer] -- a function to write an RDF dataset in this representation.}
+]
 }
 
 @;{============================================================================}
 @subsection[]{Reading}
 
-@defthing[reader/c contract/c]{
+
+@defthing[reader/c flat-contract?]{
+TBD
 
 @itemlist[
   @item{@racket[statement-list?] --}
@@ -52,19 +112,25 @@ TBD
   @item{@racket[dataset?] --}
 ]
 }
-(define reader/c (-> input-port? (or/c statement-list? graph? dataset?)))
 
 @;{============================================================================}
 @subsection[]{Writing}
 
-@defstruct*[writer (
-            (dataset (->* (dataset?) (output-port? #:map nsmap?) void?))
-            (graph (->* (graph?) (output-port? #:map nsmap?) void?))
-            (statement (->* (statement?) (output-port? #:map nsmap?) void?))
-            (literal (->* (literal?) (output-port? #:map nsmap?) void?)))]{
+@defthing[dataset-writer/c flat-contract?]{
 TBD
 }
 
+@defthing[graph-writer/c flat-contract?]{
+TBD
+
+@examples[
+  #:eval example-eval
+(define (graph->xml-string graph)
+  (let* ((representation (get-representation 'xml))
+         (writer (representation-graph-writer representation)))   
+    (with-output-to-string (λ () (writer graph)))))
+]
+}
 
 @;{============================================================================}
 @subsection[]{Exceptions}
@@ -221,6 +287,13 @@ TBD
 
 TBD
 
+@examples[
+  #:eval example-eval
+  (let* ((representation (get-representation 'nquads))
+         (writer (representation-graph-writer representation)))   
+    (writer graph-about-me))
+]
+
 See the specification at @cite["RDF11NQ"].
 
 @defthing[nquad-representation representation?]{
@@ -239,6 +312,13 @@ TBD
 @defmodule[rdf/io/ntriples]
 
 TBD
+
+@examples[
+  #:eval example-eval
+  (let* ((representation (get-representation 'ntriples))
+         (writer (representation-graph-writer representation)))   
+    (writer graph-about-me))
+]
 
 See the specification at @cite["RDF11NT"].
 
@@ -259,6 +339,13 @@ TBD
 
 TBD
 
+@examples[
+  #:eval example-eval
+  (let* ((representation (get-representation 'trig))
+         (writer (representation-graph-writer representation)))   
+    (writer graph-about-me))
+]
+
 See the specification at @cite["RDF11TRIG"].
 
 @defthing[trig-representation representation?]{
@@ -277,6 +364,13 @@ TBD
 @defmodule[rdf/io/trix]
 
 TBD
+
+@examples[
+  #:eval example-eval
+  (let* ((representation (get-representation 'trix))
+         (writer (representation-graph-writer representation)))   
+    (writer graph-about-me))
+]
 
 See the specification at @cite["RDF11TRIX"].
 
@@ -326,6 +420,13 @@ TBD
 
 TBD
 
+@examples[
+  #:eval example-eval
+  (let* ((representation (get-representation 'xml))
+         (writer (representation-graph-writer representation)))   
+    (writer graph-about-me))
+]
+
 See the specification at @cite["RDF11XML"].
 
 @defthing[xml-representation representation?]{
@@ -340,6 +441,45 @@ TBD
 
 @;{============================================================================}
 @;{============================================================================}
+@section[#:style '(toc)]{Module tabular}
+@defmodule[rdf/io/tabular]
+
+TBD
+
+@examples[
+  #:eval example-eval
+  (let* ((representation (get-representation 'tabular))
+         (writer (representation-graph-writer representation)))   
+    (writer graph-about-me))
+]
+
+@defthing[tabular-representation representation?]{
+TBD
+
+@examples[
+  #:eval example-eval
+  (require rdf/io/tabular)
+
+  tabular-representation
+]
+}
+
+@defproc[(tabular-display-graph
+          [graph graph?]
+          [out output-port? (current-output-port)])
+         void?]{
+
+@examples[
+  #:eval example-eval
+  (require rdf/core/graph
+           rdf/io/tabular)
+
+  (tabular-display-graph graph-about-me)
+]
+}
+
+@;{============================================================================}
+@;{============================================================================}
 
 @(bibliography
 
@@ -349,6 +489,13 @@ TBD
              #:location "W3C"
              #:url "https://www.w3.org/TR/rdf-json/"
              #:date "7 November 2013")
+
+  (bib-entry #:key "JSONLD"
+             #:title "JSON-LD 1.1 -- A JSON-based Serialization for Linked Data"
+             #:author "G. Kellogg, P.-A. Champin, and D. Longley"
+             #:location "W3C"
+             #:url "https://www.w3.org/TR/json-ld/"
+             #:date "16 July 2020")
 
   (bib-entry #:key "RDF11NQ"
              #:title "RDF 1.1 N-Quads -- A line-based syntax for RDF datasets"
@@ -391,6 +538,13 @@ TBD
              #:location "W3C"
              #:url "https://www.w3.org/TR/rdf-syntax-grammar/"
              #:date "25 February 2014")
+
+  (bib-entry #:key "RFC8259"
+             #:title "The JavaScript Object Notation (JSON) Data Interchange Format"
+             #:author "T. Bray"
+             #:location "RFC"
+             #:url "http://www.ietf.org/rfc/rfc8259.txt"
+             #:date "December 2017")
 
 )
 

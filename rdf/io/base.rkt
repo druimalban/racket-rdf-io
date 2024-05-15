@@ -27,7 +27,7 @@
 ;; Structures
 ;; -------------------------------------------------------------------------------------------------
 
-(define reader/c (->* () (input-port? #:map nsmap?) (or/c statement-list? graph? dataset?)))
+(define reader/c (->* () (input-port?) (or/c statement-list? graph? dataset?)))
 
 (define dataset-writer/c (->* (dataset?) (output-port? #:map nsmap?) void?))
 

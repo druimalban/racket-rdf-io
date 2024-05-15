@@ -9,6 +9,7 @@
          ;; --------------------------------------
          rdf/core/dataset
          rdf/core/graph
+         rdf/core/io
          rdf/core/literal
          rdf/core/namespace
          rdf/core/triple
@@ -44,20 +45,35 @@
           (list "http://example.com/v/people#hasScores"
                 (list 2 4 *example-typed-literal*))))))
 
+(define *example-unnamed-graph-1*
+  (unnamed-graph
+   (statement-list
+    "http://example.com/p/me"
+    (list (list "http://example.com/v/people#hasFirstName"
+                (list *example-language-literal*))
+          (list "http://example.com/v/people#hasLastName"
+                (list "!"))
+          (list "http://example.com/v/people#hasScores"
+                (list 2 4 *example-typed-literal*))))))
+
 (define *example-type-statement*
   (triple
    (string->url "http://example.com/peeps")
    (nsname->url rdf:type)
    (string->url "http://xmlns.com/foaf/0.1/Person")))
 
-(define (check-reader test-data repr-id expected)
+(define (check-reader test-data-file repr-id (expected #f))
   (let* ((representation (get-representation repr-id))
          (reader (representation-reader representation))
          (actual (with-input-from-string
-                   test-data
+                   (file->string
+                    (format "~a.~a"
+                            test-data-file
+                            repr-id)
+                    #:mode 'text)
                    (λ () (reader)))))
-    (check-equal? actual expected)))
-
+    (when expected
+      (check-equal? actual expected))))
 
 (define (check-writer test-data repr-id expected-results-file accessor)
   (let* ((representation (get-representation repr-id))

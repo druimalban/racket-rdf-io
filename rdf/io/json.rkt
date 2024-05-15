@@ -1,7 +1,10 @@
 #lang racket/base
 
-(require racket/function
+(require racket/bool
+         racket/function
+         racket/list
          racket/set
+         racket/string
          ;; --------------------------------------
          net/url-string
          net/url-structs
@@ -12,10 +15,13 @@
          rdf/core/literal
          rdf/core/nsmap
          rdf/core/statement
+         rdf/core/triple
          ;; --------------------------------------
          media-type
          ;; --------------------------------------
          "./base.rkt")
+
+(provide json-representation)
 
 ;; In general, a triple (subject S, predicate P, object O) is serialized in the following structure:
 ;;
@@ -40,7 +46,6 @@
                ((blank-node? object)
                 (list (cons 'bnode (format "_:~a" (blank-node->string object)))))
                ((literal? object)
-                (displayln object)
                 (let ((literal (list (cons 'value (literal-lexical-form object)))))
                   (cond
                     ((has-language-tag? object)
@@ -64,6 +69,50 @@
 (define (tree->json tree)
   (make-hash (hash-map tree subject->json)))
 
+(define (json->object v)
+  (let ((type (hash-ref v 'type #f))
+        (value (hash-ref v 'value))
+        (lang (hash-ref v 'lang #f))
+        (datatype (hash-ref v 'datatype #f)))
+    (cond
+      ((false? type)
+       (make-untyped-literal value))
+      ((symbol=? type 'uri) (string->url value))
+      ((symbol=? type 'bnode) (make-blank-node (substring value 2)))
+      ((symbol=? type 'literal)
+       (cond
+         (lang (make-lang-string-literal value lang))
+         (datatype (make-typed-literal value datatype))
+         (else (make-untyped-literal value))))
+      (else (raise-argument-error 'object-type "type?" type)))
+    ))
+
+(define (json-predicate-map->list subject predicate objects)
+  (let ((predicate (string->url (symbol->string predicate))))
+    (map (λ (object)
+           (triple subject predicate (json->object object)))
+         objects)))
+
+(define (json->subject v)
+  (let ((v (symbol->string v)))
+    (if (string-prefix? v "_:") (make-blank-node (substring v 2)) (string->url v))))
+
+(define (json-statement-map->statement-list subject predicate-objects)
+  (let ((subject (json->subject subject)))
+    (hash-map predicate-objects
+              (curry json-predicate-map->list subject))))
+
+;; -------------------------------------------------------------------------------------------------
+
+(define (json-read (inp (current-input-port)) #:map (nsmap (make-rdf-only-nsmap)))
+  (let ((data (read-json inp)))
+    (if (hash? data)
+        (unnamed-graph
+         (flatten
+          (hash-map data json-statement-map->statement-list)))
+        (raise-argument-error 'rdf-json "hash?" data))
+    ))
+
 ;; -------------------------------------------------------------------------------------------------
 
 (define (json-write-graph graph (out (current-output-port)) #:map (nsmap (make-rdf-only-nsmap)))
@@ -76,6 +125,6 @@
    "RDF/JSON"
    (string->media-type "application/rdf+json")
    '("rj")
-   #f
+   json-read
    #f
    json-write-graph))

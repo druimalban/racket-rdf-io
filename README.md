@@ -10,17 +10,18 @@ A *more* complete set of RDF I/O procedures than the [rdf-core](http://docs.rack
 
 ## Status
 
-| Pri. | Representation | Writer      | Reader      | Comments                                  |
-|------|----------------|-------------|-------------|-------------------------------------------|
-| 1    | N-Triples      | Complete    | Complete    | Line-Oriented, triples only.              |
-| 1    | Turtle         | Started     | Not Started |                                           |
-| 2    | RDF/XML        | Complete     | Not Started | Part of the RDF core specifications.      |
-| 2    | N-Quads        | Complete    | Started     | Effectively N-Triples + Graphs            |
-| 2    | TriG           | Started     | Not Started | Effectively Turtle + Graphs               |
-| 3    | RDF/JSON       | Complete    | Not Started |                                           |
-| 3    | TriX           | Complete    | Not Started |                                           |
-| 4    | JSON-LD        | Not Started | Not Started |                                           |
-| 4    | Notation-3     | Not Started | Not Started | Superset of Turtle with non-RDF features. |
+| Pri. | Representation | Writer      | Reader      | Comments                                       |
+|------|----------------|-------------|-------------|------------------------------------------------|
+| 1    | N-Triples      | Complete    | Complete    | Line-Oriented, triples only.                   |
+| 1    | Turtle         | Started     | Not Started | Probably the most common syntax in common use. |
+| 2    | RDF/XML        | Complete    | Started     | Part of the RDF core specifications.           |
+| 2    | N-Quads        | Complete    | Complete    | Effectively N-Triples + Graphs.                |
+| 2    | TriG           | Started     | Not Started | Effectively Turtle + Graphs.                   |
+| 3    | RDF/JSON       | Complete    | Complete    | Graph/Statement oriented, tree structured.     |
+| 3    | TriX           | Complete    | Complete    | Dataset oriented, very direct mapping.         |
+| 4    | Tabular        | Complete    | N/A         | Just for output/test/debug.                    |
+| 4    | JSON-LD        | Not Started | Not Started | Complex, a super-set of RDF.                   |
+| 4    | Notation-3     | Not Started | Not Started | Superset of Turtle with non-RDF features.      |
 
 ## Example
 
@@ -39,8 +40,7 @@ TBD
 
 (define (display-graph-as graph repr)
   (let* ((representation (get-representation repr))
-         (writer (representation-writer representation))
-         (graph-writer (writer-graph writer)))
+         (graph-writer (representation-graph-writer representation)))
     (graph-writer graph)))
 
 (display-graph-as *test-graph* 'trix)
@@ -48,16 +48,30 @@ TBD
 
 ## Changes
 
+**Version 0.1.1**
+
+Initial release.
+
+> | Representation | Writer        | Reader       |
+> |----------------|---------------|--------------|
+> | N-Triples      | **Complete**  | **Complete** |
+> | N-Quads        | **Complete**  | **Complete** |
+> | TriX           | **Complete**  | **Complete** |
+> | RDF/XML        | **Complete**  | *Started*    |
+> | Tabular        | **Complete**  | N/A          |
+> | Turtle         | *Started*     | Not Started  |
+> | TriG           | *Started*     | Not Started  |
+
 **Version 0.1.0**
 
 Initial release.
 
-> | Representation | Writer      | Reader      |
-> |----------------|-------------|-------------|
-> | N-Triples      | **Complete**    | **Complete**    |
-> | N-Quads        | **Complete**    | *Started*     |
-> | RDF/XML        | **Complete**    | Not Started |
-> | RDF/JSON       | **Complete**    | Not Started |
-> | TriX           | **Complete**    | Not Started |
-> | Turtle         | *Started*     | Not Started |
-> | TriG           | *Started*     | Not Started |
+> | Representation | Writer        | Reader       |
+> |----------------|---------------|--------------|
+> | N-Triples      | **Complete**  | **Complete** |
+> | N-Quads        | **Complete**  | *Started*    |
+> | RDF/XML        | **Complete**  | Not Started  |
+> | RDF/JSON       | **Complete**  | Not Started  |
+> | TriX           | **Complete**  | Not Started  |
+> | Turtle         | *Started*     | Not Started  |
+> | TriG           | *Started*     | Not Started  |

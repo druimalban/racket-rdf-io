@@ -10,8 +10,11 @@
          rdf/core/nsmap
          ;; --------------------------------------
          "./base.rkt"
+         "./json.rkt"
          "./nquads.rkt"
          "./ntriples.rkt"
+         "./tabular.rkt"
+         "./trig.rkt"
          "./trix.rkt"
          "./xml.rkt")
 
@@ -94,6 +97,9 @@
 
 (register-representation nquad-representation)
 (register-representation ntriple-representation)
+(register-representation tabular-representation)
+(register-representation trig-representation)
 (register-representation trix-representation)
 (register-representation trix-representation/w3c)
+(register-representation json-representation)
 (register-representation xml-representation)

@@ -13,7 +13,7 @@
 
 (provide nquad-representation)
 
-(define (nq-read (inp (current-input-port)) #:map (nsmap (make-rdf-only-nsmap)))
+(define (nq-read (inp (current-input-port)))
   (let ((lines (port->lines inp #:close? #t)))
     (map line->quad lines)))
 
