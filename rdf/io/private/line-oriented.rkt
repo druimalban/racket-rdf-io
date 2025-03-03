@@ -28,7 +28,11 @@
 
 (define predicate-regexp (format "(~a)" url-regexp))
 
-(define literal-regexp (format "(\"[^\"]*\")(@[a-zA-Z0-9-]+|\\^\\^~a)?" url-regexp))
+;; STRING_LITERAL_QUOTE ::= '"' ([^#x22#x5C#xA#xD] | ECHAR | UCHAR)* '"'
+;; UCHAR ::= '\u' HEX HEX HEX HEX | '\U' HEX HEX HEX HEX HEX HEX HEX HEX
+;; ECHAR ::= '\' [tbnrf"'\]
+;;(define literal-regexp0 (format "(\"[^\"]*\")(@[a-zA-Z0-9-]+|\\^\\^~a)?" url-regexp))
+(define literal-regexp (format "(\"(\\\"|[^\"])*\")(@[a-zA-Z0-9-]+|\\^\\^~a)?" url-regexp))
 
 (define object-regexp (format "(~a|~a|~a)" url-regexp blank-node-regexp literal-regexp))
 
@@ -61,11 +65,17 @@
   (string->url (substring s 1 (- (string-length s) 1))))
 
 (define (match->object repr s sopt)
+  ;(display "REPR: ") (display repr) (newline)
+  ;(display "S: ") (display s) (newline)
+  ;(display "SOPT: ") (display sopt) (newline)
   (cond
+    ;; opaque? IRI
     ((and (string-prefix? s "<") (string-suffix? s ">"))
      (string->url (substring s 1 (- (string-length s) 1))))
+    ;; blank node
     ((string-prefix? s "_:")
      (make-blank-node (substring s 2)))
+    ;; 
     ((and (string-prefix? s "\"")(string-suffix? s "\"") (false? sopt))
      (make-untyped-literal (substring s 1 (- (string-length s) 1))))
     ((and (string-prefix? s "\"")(string-suffix? s "\"") (string-prefix? sopt "@"))
@@ -86,16 +96,17 @@
     (if (false? matches)
         (raise-representation-read-error 'ntriple "triple?" line)
         (triple
-           (match->subject 'ntriple (second matches))
+           (match->subject   'ntriple (second matches))
            (match->predicate 'ntriple (third matches))
-           (match->object 'ntriple (if (fifth matches) (fifth matches) (fourth matches)) (sixth matches))))))
+           (match->object    'ntriple (if (fifth matches) (fifth matches) (fourth matches)) (seventh matches))))))
 
 (define (line->quad line)
-  (let ((matches (regexp-match statement-actual line)))
+  (let ((matches (regexp-match graph-statement-actual line)))
+    ;;(display "MATCH GRAPH0: ") (display matches) (newline)
     (if (false? matches)
         (raise-representation-read-error 'nquads "quad?" line)
-        (quad
-           (match->subject'nquads (second matches))
-           (match->predicate'nquads (third matches))
-           (match->object'nquads (fifth matches) (sixth matches))
-           (match->graph-name 'nquads (seventh matches))))))
+	(quad
+           (match->subject    'nquads (second matches))
+           (match->predicate  'nquads (third matches))
+           (match->object     'nquads (if (fifth matches) (fifth matches) (fourth matches)) (seventh matches))
+           (match->graph-name 'nquads (eighth matches))))))
